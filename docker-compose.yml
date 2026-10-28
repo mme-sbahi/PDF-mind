@@ -1,0 +1,36 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - RUNNING_IN_DOCKER=true
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      backend:
+        condition: service_started
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.1-8b-instant}
+      - EMBED_MODEL=all-MiniLM-L6-v2
+    depends_on:
+      chromadb:
+        condition: service_healthy
+
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
