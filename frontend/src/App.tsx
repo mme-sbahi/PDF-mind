@@ -22,6 +22,34 @@ interface Message {
   sources?: { page: number; text: string; filename: string }[];
 }
 
+// Renders the small markdown subset the model is asked to use: **bold** and "- " bullet lines.
+function renderInline(line: string) {
+  return line.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>
+      : part
+  );
+}
+
+function FormattedText({ text }: { text: string }) {
+  const lines = text.split('\n').filter((line) => line.trim() !== '');
+  return (
+    <div className="flex flex-col gap-1.5">
+      {lines.map((line, i) => {
+        const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
+        return bullet ? (
+          <div key={i} className="flex gap-2">
+            <span className="text-accentviolet">•</span>
+            <span>{renderInline(bullet[1])}</span>
+          </div>
+        ) : (
+          <p key={i}>{renderInline(line)}</p>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function App() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -391,7 +419,7 @@ export default function App() {
         <div className="p-4 px-6 border-t border-white/5 bg-black/15">
           <div className="flex items-center gap-2 text-[11px] text-gray-500 font-medium">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_#10b981]"></span>
-            <span>Local Ollama API Connected</span>
+            <span>Groq API Connected</span>
           </div>
         </div>
       </aside>
@@ -418,7 +446,7 @@ export default function App() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <div className={`flex flex-col gap-2 p-3.5 px-4.5 rounded-2xl text-[14px] leading-relaxed ${msg.role === 'user' ? 'bg-bubbleuser border border-white/5 text-gray-100 rounded-tr-none' : 'bg-cardbg/50 border border-white/5 text-gray-100 rounded-tl-none'}`}>
-                  <div>{msg.text}</div>
+                  <FormattedText text={msg.text} />
 
                   {/* Sources visualization */}
                   {msg.sources && msg.sources.length > 0 && (

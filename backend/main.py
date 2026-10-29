@@ -20,6 +20,9 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL   = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 EMBED_MODEL  = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 
+CONTEXT_CHUNKS = 10   # chunks sent to the model
+SHOWN_SOURCES  = 3    # chunks shown as sources under the answer
+
 CHROMA_HOST = os.getenv("CHROMA_HOST")
 CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
 
@@ -132,6 +135,13 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
     return chunks
 
 
+def looks_like_reference(text: str) -> bool:
+    """Bibliography chunks (URLs, ISBNs, DOIs, 'Retrieved …') match many queries but answer none."""
+    lowered = text.lower()
+    markers = lowered.count("http") + lowered.count("isbn") + lowered.count("doi") + lowered.count("retrieved ")
+    return markers >= 2
+
+
 def extract_and_chunk_pdf(pdf_bytes: bytes, filename: str) -> list[dict]:
     reader = PdfReader(io.BytesIO(pdf_bytes))
     all_chunks = []
@@ -191,7 +201,7 @@ async def query_pdf(request: QueryRequest):
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
     try:
         query_embedding = get_embedding(question)
-        results = collection.query(query_embeddings=[query_embedding], n_results=5)
+        results = collection.query(query_embeddings=[query_embedding], n_results=CONTEXT_CHUNKS)
 
         retrieved_docs  = results.get("documents", [[]])[0]
         retrieved_metas = results.get("metadatas",  [[]])[0]
@@ -210,11 +220,17 @@ async def query_pdf(request: QueryRequest):
             }
             for doc, meta in zip(retrieved_docs, retrieved_metas)
         ]
+        sources = [s for s in sources if not looks_like_reference(s["text"])] or sources
 
-        context_str = "\n---\n".join(s["text"] for s in sources)
+        context_str = "\n---\n".join(
+            f'[{s["filename"]}, page {s["page"]}]\n{s["text"]}' for s in sources
+        )
         prompt = (
-            'Answer ONLY using the context below.\n'
-            'If the answer is not in the context, say "I don\'t know".\n\n'
+            'Answer the question using only the context below.\n'
+            'If the context contains relevant information, answer with it, even if it only partly answers the question.\n'
+            'Ignore bibliography entries and reference lists.\n'
+            'If nothing in the context is relevant, reply exactly: "I don\'t know."\n'
+            'Write plain text: short paragraphs or lines starting with "- ". You may use **bold** for key terms. No headings or tables.\n\n'
             f'Context:\n{context_str}\n\n'
             f'Question:\n{question}\n'
         )
@@ -225,7 +241,11 @@ async def query_pdf(request: QueryRequest):
         )
         answer = response.choices[0].message.content
 
-        return {"answer": answer, "sources": sources}
+        # Only the closest matches are shown to the user; the rest just widen the model's context.
+        # A refusal has no supporting passages, so it gets no sources.
+        if answer.strip().lower().startswith("i don't know"):
+            return {"answer": answer, "sources": []}
+        return {"answer": answer, "sources": sources[:SHOWN_SOURCES]}
     except HTTPException:
         raise
     except Exception as e:
