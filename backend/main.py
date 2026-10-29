@@ -17,7 +17,7 @@ class QueryRequest(BaseModel):
     question: str
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-GROQ_MODEL   = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ_MODEL   = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 EMBED_MODEL  = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 
 CHROMA_HOST = os.getenv("CHROMA_HOST")

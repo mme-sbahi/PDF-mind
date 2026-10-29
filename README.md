@@ -171,7 +171,7 @@ Environment Variables
 | Variable | Default | Description |
 | --- | --- | --- |
 | `GROQ_API_KEY` | Required | API key for Groq LLM access |
-| `GROQ_MODEL` | `llama-3.1-8b-instant` | Groq model name |
+| `GROQ_MODEL` | `openai/gpt-oss-20b` | Groq model name |
 | `EMBED_MODEL` | `all-MiniLM-L6-v2` | HuggingFace embedding model |
 | `CHROMA_HOST` | (local mode) | ChromaDB server host |
 | `CHROMA_PORT` | `8000` | ChromaDB server port |

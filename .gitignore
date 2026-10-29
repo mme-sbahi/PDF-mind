@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Dependencies and build output
+node_modules/
+dist/
+__pycache__/
+*.pyc
+
+# Local ChromaDB storage (when running without Docker)
+chroma_db/
+
+# macOS
+.DS_Store
